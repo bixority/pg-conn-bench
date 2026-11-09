@@ -2,3 +2,7 @@
 # The resulting binary may not run on older CPUs.
 [build]
 rustflags = ["-C", "target-cpu=native"]
+
+# Bixority crate registry on Codeberg (index: https://codeberg.org/bixority/_cargo-index).
+[registries.bixority-codeberg]
+index = "sparse+https://codeberg.org/api/packages/bixority/cargo/"

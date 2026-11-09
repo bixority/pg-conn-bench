@@ -7,6 +7,8 @@ description = "Times each step of a PostgreSQL connection (DNS, TCP, TLS, authen
 license = "GPL-3.0-only"
 repository = "https://github.com/bixority/pg-conn-bench"
 readme = "README.md"
+publish = ["bixority-codeberg"]
+include = ["src/**/*.rs", "tests/**/*.rs", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE"]
 keywords = ["postgresql", "benchmark", "latency", "network", "tcp"]
 categories = ["command-line-utilities", "development-tools::profiling"]
 

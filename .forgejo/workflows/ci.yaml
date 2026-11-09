@@ -1,0 +1,61 @@
+name: CI
+
+# Lint, test and build on every push to main and on pull requests, on
+# Codeberg's hosted runners. aws-lc-sys (rustls' crypto backend) needs a C
+# compiler and cmake on top of the slim Rust image.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ forgejo.workflow }}-${{ forgejo.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_HOME: /cargo-home
+  CARGO_TERM_COLOR: never
+
+jobs:
+  check:
+    name: Lint, test and build
+    runs-on: codeberg-medium
+    container:
+      image: docker.io/library/rust:1.99-slim-trixie
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends build-essential cmake git nodejs
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v6
+
+      - name: Add rustfmt and clippy
+        run: rustup component add rustfmt clippy
+
+      - name: Cache cargo registry and build
+        uses: https://code.forgejo.org/actions/cache@v4
+        with:
+          path: |
+            /cargo-home/registry
+            /cargo-home/git
+            target
+          key: cargo-${{ hashFiles('Cargo.lock') }}-${{ forgejo.run_id }}
+          restore-keys: |
+            cargo-${{ hashFiles('Cargo.lock') }}-
+            cargo-
+
+      - name: Rustfmt
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Build
+        run: cargo build --release --locked

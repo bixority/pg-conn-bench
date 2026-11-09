@@ -1,0 +1,64 @@
+name: Release
+
+# On a version tag (v<Cargo.toml version>, e.g. v0.1.0): run the same gates as
+# CI, then publish the crate to the bixority cargo registry on Codeberg
+# (index: https://codeberg.org/bixority/_cargo-index).
+#
+# Required repository secret (Settings -> Actions -> Secrets):
+#   CODEBERG_TOKEN - Codeberg access token with the write:package scope, owned
+#                    by a user who may publish packages for the bixority org.
+
+on:
+  push:
+    tags: ["v*"]
+
+concurrency:
+  group: ${{ forgejo.workflow }}-${{ forgejo.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_HOME: /cargo-home
+  CARGO_TERM_COLOR: never
+
+jobs:
+  publish:
+    name: Check and publish crate
+    runs-on: codeberg-medium
+    container:
+      image: docker.io/library/rust:1.99-slim-trixie
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends build-essential cmake git nodejs
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v6
+
+      - name: Add rustfmt and clippy
+        run: rustup component add rustfmt clippy
+
+      - name: Tag matches the crate version
+        env:
+          TAG: ${{ forgejo.ref_name }}
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n1)
+          if [ "${TAG}" != "v${version}" ]; then
+            echo "Tag ${TAG} does not match Cargo.toml version ${version}" >&2
+            exit 1
+          fi
+
+      - name: Rustfmt
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Publish
+        env:
+          CARGO_REGISTRIES_BIXORITY_CODEBERG_TOKEN: Bearer ${{ secrets.CODEBERG_TOKEN }}
+        run: cargo publish --registry bixority-codeberg --locked

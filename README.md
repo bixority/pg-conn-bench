@@ -19,6 +19,12 @@ sequential, and the connection is closed (with a Terminate message) outside the 
 cargo install --git https://github.com/bixority/pg-conn-bench
 ```
 
+Releases are also published to the Bixority cargo registry on Codeberg:
+
+```
+cargo install pg-conn-bench --index sparse+https://codeberg.org/api/packages/bixority/cargo/
+```
+
 Or build from a checkout with `cargo build --release`. `.cargo/config.toml` builds for the CPU of the
 build machine (`target-cpu=native`); remove it to build a portable binary.
 
