@@ -1,0 +1,4 @@
+# Build for the CPU this runs on, so the compiler may use its newest instructions (AVX2, etc.).
+# The resulting binary may not run on older CPUs.
+[build]
+rustflags = ["-C", "target-cpu=native"]
