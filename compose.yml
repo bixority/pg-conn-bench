@@ -1,0 +1,40 @@
+# Local test environment: PostgreSQL 18.7 + pg-conn-bench
+#
+# Usage:
+#   compose up --build
+#
+# The pg-conn-bench service runs once against the PostgreSQL database and
+# exits after completing the benchmark.  To re-run, use `compose up --build`
+# again or `compose run --rm pg-conn-bench`.
+
+services:
+  postgres:
+    image: docker.io/library/postgres:18.7
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  pg-conn-bench:
+    build:
+      context: .
+      dockerfile: Containerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+      PGSSLMODE: disable
+    entrypoint: ["/pg-conn-bench"]
+    command: ["--runs", "10", "--details"]

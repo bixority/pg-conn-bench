@@ -33,7 +33,7 @@ jobs:
     name: Lint, test and build
     runs-on: codeberg-medium
     container:
-      image: docker.io/library/rust:1.99-slim-trixie
+      image: docker.io/library/rust:1.100.0-slim-trixie
     steps:
       - name: Install build dependencies
         run: |
@@ -77,7 +77,7 @@ jobs:
     if: startsWith(forgejo.ref, 'refs/tags/v')
     runs-on: codeberg-medium
     container:
-      image: docker.io/library/rust:1.99-slim-trixie
+      image: docker.io/library/rust:1.100.0-slim-trixie
     steps:
       - name: Install build dependencies
         run: |
@@ -102,3 +102,41 @@ jobs:
         env:
           CARGO_REGISTRIES_BIXORITY_CODEBERG_TOKEN: Bearer ${{ secrets.CODEBERG_TOKEN }}
         run: cargo publish --registry bixority-codeberg --locked
+
+  container:
+    name: Build and push container image
+    needs: check
+    if: startsWith(forgejo.ref, 'refs/tags/v') || forgejo.ref == 'refs/heads/main'
+    runs-on: codeberg-small
+    container:
+      image: docker.io/library/rust:1.100.0-slim-trixie
+    steps:
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends build-essential cmake git nodejs buildah ca-certificates
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v6
+
+      - name: Build image
+        run: |
+          buildah build \
+            --storage-driver=vfs \
+            --isolation=chroot \
+            --tag codeberg.org/bixority/pg-conn-bench:${{ forgejo.ref_name }} \
+            --tag codeberg.org/bixority/pg-conn-bench:latest \
+            -f Containerfile \
+            .
+
+      - name: Push image
+        run: |
+          buildah push \
+            --storage-driver=vfs \
+            --creds bixority:${{ secrets.REGISTRY_TOKEN }} \
+            codeberg.org/bixority/pg-conn-bench:${{ forgejo.ref_name }}
+          buildah push \
+            --storage-driver=vfs \
+            --creds bixority:${{ secrets.REGISTRY_TOKEN }} \
+            codeberg.org/bixority/pg-conn-bench:latest

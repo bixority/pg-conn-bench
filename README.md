@@ -100,6 +100,104 @@ podman run -d -p 55432:5432 -v ./certs:/in:Z -e POSTGRES_PASSWORD=benchpass -e P
   && exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/server.crt -c ssl_key_file=/tmp/server.key'
 ```
 
+## Container
+
+Build the image with any OCI-compatible tool:
+
+```
+podman build -t pg-conn-bench .
+```
+
+The image supports `amd64` and `arm64` platforms and uses a minimal distroless runtime.
+
+### Local testing with Compose
+
+Run against a local PostgreSQL 18.7 instance:
+
+```
+compose up --build
+```
+
+Re-run the benchmark without rebuilding:
+
+```
+compose run --rm pg-conn-bench
+```
+
+### Running on Kubernetes
+
+Create a secret for the database password:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: pg-conn-bench-secret
+  labels:
+    app: pg-conn-bench
+type: Opaque
+stringData:
+  PGPASSWORD: "changeme"
+```
+
+Apply a Deployment that runs the benchmark once:
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pg-conn-bench
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: pg-conn-bench
+          image: ghcr.io/bixority/pg-conn-bench:latest
+          env:
+            - name: PGHOST
+              value: "postgres.example.com"
+            - name: PGPORT
+              value: "5432"
+            - name: PGUSER
+              value: "postgres"
+            - name: PGDATABASE
+              value: "postgres"
+            - name: PGSSLMODE
+              value: "disable"
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-conn-bench-secret
+                  key: PGPASSWORD
+          args: ["--runs", "10", "--details"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 128Mi
+```
+
+Save both manifests to a file and apply:
+
+```
+kubectl apply -f pg-conn-bench-k8s.yaml
+```
+
+Or pipe them directly:
+
+```
+kubectl apply -f - <<'EOF'
+...
+EOF
+```
+
+Connection settings (`PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE`, `PGSSLMODE`) are passed as
+environment variables. The password should come from a Kubernetes Secret. The Job runs once and
+exits, so it works well for CI/CD pipelines or scheduled benchmarks (via `CronJob`).
+
 ## License
 
 GPL-3.0-only. See [LICENSE](LICENSE).
