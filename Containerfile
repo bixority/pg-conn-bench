@@ -22,7 +22,7 @@ RUN echo "Target architecture is: ${TARGETARCH}" && \
         echo "Unsupported architecture: ${TARGETARCH}"; exit 1; \
     fi
 
-FROM --platform=$TARGETOS/$TARGETARCH gcr.io/distroless/static-debian13:nonroot
+FROM --platform=$TARGETOS/$TARGETARCH gcr.io/distroless/base-debian13:nonroot
 
 LABEL org.opencontainers.image.description="PostgreSQL connection benchmark"
 LABEL authors="Bixority SIA"

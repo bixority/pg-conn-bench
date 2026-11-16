@@ -91,15 +91,6 @@ cargo test                                   # unit and CLI tests that need no s
 PGHOST=... PGPORT=... PGUSER=... PGPASSWORD=... PGDATABASE=... cargo test --test cli -- --ignored
 ```
 
-For a local test server with TLS (mount a directory with `server.crt` and `server.key` at `/in`):
-
-```
-podman run -d -p 55432:5432 -v ./certs:/in:Z -e POSTGRES_PASSWORD=benchpass -e POSTGRES_USER=bench \
-  -e POSTGRES_DB=benchdb docker.io/library/postgres:18 sh -c 'cp /in/server.crt /in/server.key /tmp/ \
-  && chown postgres:postgres /tmp/server.* && chmod 600 /tmp/server.key \
-  && exec docker-entrypoint.sh postgres -c ssl=on -c ssl_cert_file=/tmp/server.crt -c ssl_key_file=/tmp/server.key'
-```
-
 ## Container
 
 Build the image with any OCI-compatible tool:
@@ -109,6 +100,20 @@ podman build -t pg-conn-bench .
 ```
 
 The image supports `amd64` and `arm64` platforms and uses a minimal distroless runtime.
+
+### Running locally with podman
+
+Pull the image from GitHub Container Registry and pass connection settings as environment variables:
+
+```
+podman run --rm -it \
+  -e PGHOST=postgres.example.com \
+  -e PGPORT=5432 \
+  -e PGUSER=postgres \
+  -e PGPASSWORD=changeme \
+  -e PGDATABASE=postgres \
+  ghcr.io/bixority/pg-conn-bench:main --runs 10 --details
+```
 
 ### Local testing with Compose
 
@@ -136,7 +141,7 @@ kubectl create secret generic pg-conn-bench-secret \
 Then run the benchmark as a one-shot pod:
 
 ```
-kubectl run pg-conn-bench --restart=Never --image=ghcr.io/bixority/pg-conn-bench:latest \
+kubectl run pg-conn-bench --restart=Never --image=ghcr.io/bixority/pg-conn-bench:main \
   --env=PGHOST=postgres.example.com \
   --env=PGPORT=5432 \
   --env=PGUSER=postgres \
