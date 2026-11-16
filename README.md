@@ -126,77 +126,29 @@ compose run --rm pg-conn-bench
 
 ### Running on Kubernetes
 
-Create a secret for the database password:
-
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: pg-conn-bench-secret
-  labels:
-    app: pg-conn-bench
-type: Opaque
-stringData:
-  PGPASSWORD: "changeme"
-```
-
-Apply a Deployment that runs the benchmark once:
-
-```yaml
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: pg-conn-bench
-spec:
-  template:
-    spec:
-      restartPolicy: Never
-      containers:
-        - name: pg-conn-bench
-          image: ghcr.io/bixority/pg-conn-bench:latest
-          env:
-            - name: PGHOST
-              value: "postgres.example.com"
-            - name: PGPORT
-              value: "5432"
-            - name: PGUSER
-              value: "postgres"
-            - name: PGDATABASE
-              value: "postgres"
-            - name: PGSSLMODE
-              value: "disable"
-            - name: PGPASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: pg-conn-bench-secret
-                  key: PGPASSWORD
-          args: ["--runs", "10", "--details"]
-          resources:
-            requests:
-              cpu: 100m
-              memory: 64Mi
-            limits:
-              cpu: 500m
-              memory: 128Mi
-```
-
-Save both manifests to a file and apply:
+First, create a secret for the database password:
 
 ```
-kubectl apply -f pg-conn-bench-k8s.yaml
+kubectl create secret generic pg-conn-bench-secret \
+  --from-literal=PGPASSWORD='changeme'
 ```
 
-Or pipe them directly:
+Then run the benchmark as a one-shot pod:
 
 ```
-kubectl apply -f - <<'EOF'
-...
-EOF
+kubectl run pg-conn-bench --restart=Never --image=ghcr.io/bixority/pg-conn-bench:latest \
+  --env=PGHOST=postgres.example.com \
+  --env=PGPORT=5432 \
+  --env=PGUSER=postgres \
+  --env=PGDATABASE=postgres \
+  --env=PGSSLMODE=disable \
+  --env-from=secret/pg-conn-bench-secret \
+  --limits='cpu=500m,memory=128Mi' \
+  -- /pg-conn-bench --runs 10 --details
 ```
 
-Connection settings (`PGHOST`, `PGPORT`, `PGUSER`, `PGDATABASE`, `PGSSLMODE`) are passed as
-environment variables. The password should come from a Kubernetes Secret. The Job runs once and
-exits, so it works well for CI/CD pipelines or scheduled benchmarks (via `CronJob`).
+Follow the output with `kubectl logs -f pg-conn-bench`. The pod exits after the benchmark
+completes. For recurring benchmarks, wrap the same command in a `CronJob` manifest.
 
 ## License
 
